@@ -31,51 +31,63 @@ export class Game {
     this.canvas.addEventListener("click", this.handleClick.bind(this));
   }
 
-  update() {
-    if (this.state !== GameState.PLAYING) return;
+update() {
+  if (this.state !== GameState.PLAYING) return;
 
-    // --- Spawner logic ---
-    this.playerSpawner.update(this.units);
-    this.enemySpawner.update(this.enemyUnits);
+  // --- Spawner logic ---
+  this.playerSpawner.update(this.units);
+  this.enemySpawner.update(this.enemyUnits);
 
-    // Start next wave when ready
-    if (
-      this.playerSpawner.isFinished() &&
-      this.enemySpawner.isFinished()
-    ) {
-      this.waveTimer--;
-
-      if (this.waveTimer <= 0) {
-        this.startNextWave();
-      }
+  if (
+    this.playerSpawner.isFinished() &&
+    this.enemySpawner.isFinished()
+  ) {
+    this.waveTimer--;
+    if (this.waveTimer <= 0) {
+      this.startNextWave();
     }
-
-    // --- Update units ---
-    this.units.forEach(unit => unit.update());
-    this.enemyUnits.forEach(unit => unit.update());
-
-    // --- Towers attack ---
-    this.towers.forEach(tower =>
-      tower.update(this.units, this.enemyUnits)
-    );
-
-    // --- Capture check ---
-    for (const tower of this.towers) {
-      if (tower.owner !== "enemy") continue;
-
-      for (const unit of this.units) {
-        if (tower.isReachedBy(unit)) {
-          this.state = GameState.CAPTURE_DECISION;
-          this.selectedTower = tower;
-          return;
-        }
-      }
-    }
-
-    // Cleanup
-    this.units = this.units.filter(u => u.isAlive);
-    this.enemyUnits = this.enemyUnits.filter(u => u.isAlive);
   }
+
+  // --- Update units ---
+  this.units.forEach(unit => unit.update());
+  this.enemyUnits.forEach(unit => unit.update());
+
+  // --- Towers attack ---
+  this.towers.forEach(tower =>
+    tower.update(this.units, this.enemyUnits)
+  );
+
+  // --- Siege: units damage enemy towers ---
+  for (const tower of this.towers) {
+    if (tower.owner !== "enemy") continue;
+
+    for (const unit of this.units) {
+      if (tower.isReachedBy(unit)) {
+        unit.attackTower(tower);
+      }
+    }
+  }
+
+  // --- Remove destroyed towers ---
+  this.towers = this.towers.filter(tower => tower.hp > 0);
+
+  // --- Capture check ---
+  for (const tower of this.towers) {
+    if (tower.owner !== "enemy") continue;
+
+    for (const unit of this.units) {
+      if (tower.isReachedBy(unit)) {
+        this.state = GameState.CAPTURE_DECISION;
+        this.selectedTower = tower;
+        return;
+      }
+    }
+  }
+
+  // Cleanup dead units
+  this.units = this.units.filter(u => u.isAlive);
+  this.enemyUnits = this.enemyUnits.filter(u => u.isAlive);
+}
 
   startNextWave() {
     const count = 2 + this.currentWave;

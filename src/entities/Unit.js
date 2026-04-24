@@ -4,34 +4,53 @@ export class Unit {
     this.y = y;
 
     this.speed = 1;
+
     this.hp = 50;
     this.isAlive = true;
-  }
 
-  takeDamage(amount) {
-    this.hp -= amount;
-
-    if (this.hp <= 0) {
-      this.isAlive = false;
-    }
+    // Siege
+    this.attackDamage = 1;
+    this.attackCooldown = 30;
+    this.attackTimer = 0;
   }
 
   update() {
     if (!this.isAlive) return;
     this.x += this.speed;
+
+    if (this.attackTimer > 0) {
+      this.attackTimer--;
+    }
+  }
+
+  takeDamage(amount) {
+    this.hp -= amount;
+    if (this.hp <= 0) {
+      this.isAlive = false;
+    }
+  }
+
+  canAttack() {
+    return this.attackTimer <= 0;
+  }
+
+  attackTower(tower) {
+    if (!this.canAttack()) return;
+
+    tower.hp -= this.attackDamage;
+    this.attackTimer = this.attackCooldown;
   }
 
   draw(ctx) {
     if (!this.isAlive) return;
 
-    // Unit body
+    // Body
     ctx.fillStyle = "blue";
     ctx.fillRect(this.x, this.y, 12, 12);
 
     // Health bar
     ctx.fillStyle = "red";
     ctx.fillRect(this.x, this.y - 6, 12, 4);
-
     ctx.fillStyle = "green";
     ctx.fillRect(this.x, this.y - 6, 12 * (this.hp / 50), 4);
   }
