@@ -13,13 +13,16 @@ export class Tower {
     this.cooldown = 0;
   }
 
-  update(units) {
+  update(playerUnits, enemyUnits) {
     if (this.cooldown > 0) {
       this.cooldown--;
       return;
     }
 
-    const target = this.findTarget(units);
+    const targets =
+      this.owner === "enemy" ? playerUnits : enemyUnits;
+
+    const target = this.findTarget(targets);
     if (target) {
       target.takeDamage(this.damage);
       this.cooldown = this.fireRate;
@@ -53,7 +56,7 @@ export class Tower {
     ctx.fillStyle = this.owner === "enemy" ? "red" : "green";
     ctx.fillRect(this.x, this.y, 40, 40);
 
-    // Debug range circle
+    // Debug: range
     ctx.strokeStyle = "rgba(255,255,255,0.2)";
     ctx.beginPath();
     ctx.arc(this.x + 20, this.y + 20, this.range, 0, Math.PI * 2);

@@ -5,29 +5,39 @@ import { Tower } from "../entities/Tower.js";
 export class Game {
   constructor(ctx) {
     this.ctx = ctx;
+    this.canvas = ctx.canvas;
+
     this.state = GameState.PLAYING;
 
     this.units = [];
+    this.enemyUnits = [];
     this.towers = [];
     this.selectedTower = null;
 
-    this.canvas = ctx.canvas;
-
     // Test data
-    this.units.push(new Unit(50, 250));
+    this.units.push(new Unit(50, 250));        // player unit
+    this.enemyUnits.push(new Unit(850, 250)); // enemy unit (temporary)
+
+    // Enemy tower
     this.towers.push(new Tower(700, 230, "enemy"));
 
-    // Mouse input
+    // Input
     this.canvas.addEventListener("click", this.handleClick.bind(this));
   }
 
   update() {
     if (this.state !== GameState.PLAYING) return;
 
+    // Update units
     this.units.forEach(unit => unit.update());
-    this.towers.forEach(tower => tower.update(this.units));
+    this.enemyUnits.forEach(unit => unit.update(-1));
 
-    // Check if unit reached an enemy tower
+    // Towers attack based on ownership
+    this.towers.forEach(tower =>
+      tower.update(this.units, this.enemyUnits)
+    );
+
+    // Check capture condition
     for (const tower of this.towers) {
       if (tower.owner !== "enemy") continue;
 
@@ -40,8 +50,9 @@ export class Game {
       }
     }
 
-    // Remove dead units
+    // Cleanup dead units
     this.units = this.units.filter(unit => unit.isAlive);
+    this.enemyUnits = this.enemyUnits.filter(unit => unit.isAlive);
   }
 
   draw() {
@@ -54,24 +65,22 @@ export class Game {
 
   drawPlaying() {
     this.units.forEach(unit => unit.draw(this.ctx));
+    this.enemyUnits.forEach(unit => unit.draw(this.ctx));
     this.towers.forEach(tower => tower.draw(this.ctx));
   }
 
-  // =========================
-  // CAPTURE / DESTROY UI
-  // =========================
+  // ====================
+  // CAPTURE UI
+  // ====================
 
   drawCaptureDecision() {
-    // Dark overlay
     this.ctx.fillStyle = "rgba(0,0,0,0.7)";
     this.ctx.fillRect(0, 0, 900, 500);
 
-    // Title
     this.ctx.fillStyle = "white";
     this.ctx.font = "26px Arial";
     this.ctx.fillText("Tower Reached!", 330, 170);
 
-    // Buttons
     this.drawButton(250, 230, 150, 50, "CAPTURE", "green");
     this.drawButton(500, 230, 150, 50, "DESTROY", "red");
   }
@@ -86,60 +95,39 @@ export class Game {
     this.ctx.textBaseline = "middle";
     this.ctx.fillText(text, x + w / 2, y + h / 2);
 
-    // Store button bounds for click detection
     if (!this.buttons) this.buttons = {};
     this.buttons[text] = { x, y, w, h };
   }
-
-  // =========================
-  // INPUT HANDLING
-  // =========================
 
   handleClick(event) {
     if (this.state !== GameState.CAPTURE_DECISION) return;
 
     const rect = this.canvas.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
+    const mx = event.clientX - rect.left;
+    const my = event.clientY - rect.top;
 
-    if (this.isInside(this.buttons.CAPTURE, mouseX, mouseY)) {
+    if (this.isInside(this.buttons.CAPTURE, mx, my)) {
       this.captureTower();
     }
 
-    if (this.isInside(this.buttons.DESTROY, mouseX, mouseY)) {
+    if (this.isInside(this.buttons.DESTROY, mx, my)) {
       this.destroyTower();
     }
   }
 
-  isInside(button, x, y) {
-    return (
-      x > button.x &&
-      x < button.x + button.w &&
-      y > button.y &&
-      y < button.y + button.h
-    );
+  isInside(b, x, y) {
+    return x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h;
   }
 
-  // =========================
-  // ACTIONS
-  // =========================
-
   captureTower() {
-    if (!this.selectedTower) return;
-
     this.selectedTower.owner = "player";
-    this.selectedTower.hp = 100;
-
     this.exitDecisionState();
   }
 
   destroyTower() {
-    if (!this.selectedTower) return;
-
     this.towers = this.towers.filter(
-      tower => tower !== this.selectedTower
+      t => t !== this.selectedTower
     );
-
     this.exitDecisionState();
   }
 
