@@ -52,14 +52,27 @@ export class Tower {
     return distance < 20;
   }
 
-  draw(ctx) {
-    ctx.fillStyle = this.owner === "enemy" ? "red" : "green";
-    ctx.fillRect(this.x, this.y, 40, 40);
+draw(ctx) {
+  // Tower body
+  ctx.fillStyle = this.owner === "enemy" ? "red" : "green";
+  ctx.fillRect(this.x, this.y, 40, 40);
 
-    // Debug: range
-    ctx.strokeStyle = "rgba(255,255,255,0.2)";
-    ctx.beginPath();
-    ctx.arc(this.x + 20, this.y + 20, this.range, 0, Math.PI * 2);
-    ctx.stroke();
+  // --- HP BAR (minimal UI) ---
+  ctx.fillStyle = "darkred";
+  ctx.fillRect(this.x, this.y - 8, 40, 5);
+
+  ctx.fillStyle = "lime";
+  ctx.fillRect(
+    this.x,
+    this.y - 8,
+    40 * (this.hp / 100),
+    5
+  );
+
+  // Debug: range
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.beginPath();
+  ctx.arc(this.x + 20, this.y + 20, this.range, 0, Math.PI * 2);
+  ctx.stroke();
   }
 }
