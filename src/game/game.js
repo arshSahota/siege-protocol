@@ -8,12 +8,17 @@ export class Game {
     this.ctx = ctx;
     this.canvas = ctx.canvas;
 
+    // Game state
     this.state = GameState.PLAYING;
 
+    // Entities
     this.units = [];
     this.enemyUnits = [];
     this.towers = [];
     this.selectedTower = null;
+
+    // Resources
+    this.gold = 0;
 
     // Waves
     this.currentWave = 1;
@@ -31,63 +36,63 @@ export class Game {
     this.canvas.addEventListener("click", this.handleClick.bind(this));
   }
 
-update() {
-  if (this.state !== GameState.PLAYING) return;
+  update() {
+    if (this.state !== GameState.PLAYING) return;
 
-  // --- Spawner logic ---
-  this.playerSpawner.update(this.units);
-  this.enemySpawner.update(this.enemyUnits);
+    // --- Spawner logic ---
+    this.playerSpawner.update(this.units);
+    this.enemySpawner.update(this.enemyUnits);
 
-  if (
-    this.playerSpawner.isFinished() &&
-    this.enemySpawner.isFinished()
-  ) {
-    this.waveTimer--;
-    if (this.waveTimer <= 0) {
-      this.startNextWave();
-    }
-  }
-
-  // --- Update units ---
-  this.units.forEach(unit => unit.update());
-  this.enemyUnits.forEach(unit => unit.update());
-
-  // --- Towers attack ---
-  this.towers.forEach(tower =>
-    tower.update(this.units, this.enemyUnits)
-  );
-
-  // --- Siege: units damage enemy towers ---
-  for (const tower of this.towers) {
-    if (tower.owner !== "enemy") continue;
-
-    for (const unit of this.units) {
-      if (tower.isReachedBy(unit)) {
-        unit.attackTower(tower);
+    if (
+      this.playerSpawner.isFinished() &&
+      this.enemySpawner.isFinished()
+    ) {
+      this.waveTimer--;
+      if (this.waveTimer <= 0) {
+        this.startNextWave();
       }
     }
-  }
 
-  // --- Remove destroyed towers ---
-  this.towers = this.towers.filter(tower => tower.hp > 0);
+    // --- Update units ---
+    this.units.forEach(unit => unit.update());
+    this.enemyUnits.forEach(unit => unit.update());
 
-  // --- Capture check ---
-  for (const tower of this.towers) {
-    if (tower.owner !== "enemy") continue;
+    // --- Towers attack ---
+    this.towers.forEach(tower =>
+      tower.update(this.units, this.enemyUnits)
+    );
 
-    for (const unit of this.units) {
-      if (tower.isReachedBy(unit)) {
-        this.state = GameState.CAPTURE_DECISION;
-        this.selectedTower = tower;
-        return;
+    // --- Siege: units damage enemy towers ---
+    for (const tower of this.towers) {
+      if (tower.owner !== "enemy") continue;
+
+      for (const unit of this.units) {
+        if (tower.isReachedBy(unit)) {
+          unit.attackTower(tower);
+        }
       }
     }
-  }
 
-  // Cleanup dead units
-  this.units = this.units.filter(u => u.isAlive);
-  this.enemyUnits = this.enemyUnits.filter(u => u.isAlive);
-}
+    // --- Remove destroyed towers ---
+    this.towers = this.towers.filter(tower => tower.hp > 0);
+
+    // --- Capture check ---
+    for (const tower of this.towers) {
+      if (tower.owner !== "enemy") continue;
+
+      for (const unit of this.units) {
+        if (tower.isReachedBy(unit)) {
+          this.state = GameState.CAPTURE_DECISION;
+          this.selectedTower = tower;
+          return;
+        }
+      }
+    }
+
+    // Cleanup dead units
+    this.units = this.units.filter(u => u.isAlive);
+    this.enemyUnits = this.enemyUnits.filter(u => u.isAlive);
+  }
 
   startNextWave() {
     const count = 2 + this.currentWave;
@@ -106,10 +111,11 @@ update() {
       this.drawCaptureDecision();
     }
 
-    // Wave info
+    // HUD
     this.ctx.fillStyle = "white";
     this.ctx.font = "16px Arial";
     this.ctx.fillText(`Wave: ${this.currentWave}`, 20, 20);
+    this.ctx.fillText(`Gold: ${this.gold}`, 20, 40);
   }
 
   drawPlaying() {
@@ -119,7 +125,7 @@ update() {
   }
 
   // ====================
-  // CAPTURE UI
+  // CAPTURE / DESTROY UI
   // ====================
 
   drawCaptureDecision() {
@@ -156,18 +162,45 @@ update() {
     const y = event.clientY - rect.top;
 
     if (this.isInside(this.buttons.CAPTURE, x, y)) {
-      this.selectedTower.owner = "player";
-      this.exitDecisionState();
+      this.captureTower();
     }
 
     if (this.isInside(this.buttons.DESTROY, x, y)) {
-      this.towers = this.towers.filter(t => t !== this.selectedTower);
-      this.exitDecisionState();
+      this.destroyTower();
     }
   }
 
   isInside(b, x, y) {
-    return x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h;
+    return (
+      x > b.x &&
+      x < b.x + b.w &&
+      y > b.y &&
+      y < b.y + b.h
+    );
+  }
+
+  // ====================
+  // ACTIONS
+  // ====================
+
+  captureTower() {
+    if (!this.selectedTower) return;
+
+    this.selectedTower.owner = "player";
+    this.exitDecisionState();
+  }
+
+  destroyTower() {
+    if (!this.selectedTower) return;
+
+    // Reward gold for destruction
+    this.gold += 25;
+
+    this.towers = this.towers.filter(
+      t => t !== this.selectedTower
+    );
+
+    this.exitDecisionState();
   }
 
   exitDecisionState() {
