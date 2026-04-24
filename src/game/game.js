@@ -5,18 +5,33 @@ import { Tower } from "../entities/Tower.js";
 export class Game {
   constructor(ctx) {
     this.ctx = ctx;
-    this.state = new GameState();
+    this.state = GameState.PLAYING;
 
-    // Temporary test entities
-    this.units = [new Unit(50, 250)];
-    this.towers = [new Tower(700, 250, "enemy")];
+    this.units = [];
+    this.towers = [];
+
+    // Temporary test data
+    this.units.push(new Unit(50, 250));
+    this.towers.push(new Tower(700, 230, "enemy"));
   }
 
   update() {
+    if (this.state === GameState.PLAYING) {
+      this.updatePlaying();
+    }
+  }
+
+  updatePlaying() {
     this.units.forEach(unit => unit.update());
   }
 
   draw() {
+    if (this.state === GameState.PLAYING) {
+      this.drawPlaying();
+    }
+  }
+
+  drawPlaying() {
     this.units.forEach(unit => unit.draw(this.ctx));
     this.towers.forEach(tower => tower.draw(this.ctx));
   }
