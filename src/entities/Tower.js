@@ -38,11 +38,22 @@ export class Tower {
     });
   }
 
+  isReachedBy(unit) {
+    const centerX = this.x + 20;
+    const centerY = this.y + 20;
+
+    const dx = unit.x - centerX;
+    const dy = unit.y - centerY;
+
+    const distance = Math.hypot(dx, dy);
+    return distance < 20;
+  }
+
   draw(ctx) {
     ctx.fillStyle = this.owner === "enemy" ? "red" : "green";
     ctx.fillRect(this.x, this.y, 40, 40);
 
-    // Optional: show range (debug)
+    // Debug range circle
     ctx.strokeStyle = "rgba(255,255,255,0.2)";
     ctx.beginPath();
     ctx.arc(this.x + 20, this.y + 20, this.range, 0, Math.PI * 2);
