@@ -8,17 +8,20 @@ export class Game {
     this.ctx = ctx;
     this.canvas = ctx.canvas;
 
-    // Game state
     this.state = GameState.PLAYING;
 
-    // Entities
     this.units = [];
     this.enemyUnits = [];
     this.towers = [];
     this.selectedTower = null;
 
-    // Resources
-    this.gold = 0;
+    // Economy
+    this.gold = 50;
+    this.unitCosts = {
+      basic: 10,
+      fast: 12,
+      tank: 20
+    };
 
     // Waves
     this.currentWave = 1;
@@ -29,19 +32,16 @@ export class Game {
     this.playerSpawner = new Spawner(50, 250, 1);
     this.enemySpawner = new Spawner(850, 250, -1);
 
-    // Initial enemy tower
     this.towers.push(new Tower(700, 230, "enemy"));
 
-    // Input
     this.canvas.addEventListener("click", this.handleClick.bind(this));
   }
 
   update() {
     if (this.state !== GameState.PLAYING) return;
 
-    // --- Spawner logic ---
-    this.playerSpawner.update(this.units);
-    this.enemySpawner.update(this.enemyUnits);
+    this.playerSpawner.update(this.units, this);
+    this.enemySpawner.update(this.enemyUnits, this);
 
     if (
       this.playerSpawner.isFinished() &&
@@ -53,16 +53,13 @@ export class Game {
       }
     }
 
-    // --- Update units ---
-    this.units.forEach(unit => unit.update());
-    this.enemyUnits.forEach(unit => unit.update());
+    this.units.forEach(u => u.update());
+    this.enemyUnits.forEach(u => u.update());
 
-    // --- Towers attack ---
-    this.towers.forEach(tower =>
-      tower.update(this.units, this.enemyUnits)
+    this.towers.forEach(t =>
+      t.update(this.units, this.enemyUnits)
     );
 
-    // --- Siege: units damage enemy towers ---
     for (const tower of this.towers) {
       if (tower.owner !== "enemy") continue;
 
@@ -73,10 +70,8 @@ export class Game {
       }
     }
 
-    // --- Remove destroyed towers ---
-    this.towers = this.towers.filter(tower => tower.hp > 0);
+    this.towers = this.towers.filter(t => t.hp > 0);
 
-    // --- Capture check ---
     for (const tower of this.towers) {
       if (tower.owner !== "enemy") continue;
 
@@ -89,55 +84,92 @@ export class Game {
       }
     }
 
-    // Cleanup dead units
     this.units = this.units.filter(u => u.isAlive);
     this.enemyUnits = this.enemyUnits.filter(u => u.isAlive);
   }
 
   startNextWave() {
-    const count = 2 + this.currentWave;
+    const playerUnits = [];
+    const enemyUnits = [];
 
-    this.playerSpawner.startWave(count);
-    this.enemySpawner.startWave(count - 1);
+    for (let i = 0; i < this.currentWave + 2; i++) {
+      playerUnits.push(
+        Math.random() < 0.3 ? "fast" :
+        Math.random() < 0.2 ? "tank" :
+        "basic"
+      );
+      enemyUnits.push("basic");
+    }
+
+    this.playerSpawner.startWave(playerUnits);
+    this.enemySpawner.startWave(enemyUnits);
 
     this.currentWave++;
     this.waveTimer = this.waveCooldown;
   }
 
   draw() {
-    this.drawPlaying();
+    // Draw game world
+    this.units.forEach(u => u.draw(this.ctx));
+    this.enemyUnits.forEach(u => u.draw(this.ctx));
+    this.towers.forEach(t => t.draw(this.ctx));
 
+    // ===== HUD (always visible) =====
+    this.ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    this.ctx.fillRect(10, 10, 150, 70);
+
+    this.ctx.fillStyle = "white";
+    this.ctx.font = "16px Arial";
+    this.ctx.fillText(`Wave: ${this.currentWave}`, 20, 30);
+    this.ctx.fillText(`Gold: ${this.gold}`, 20, 50);
+
+    // Capture decision overlay
     if (this.state === GameState.CAPTURE_DECISION) {
       this.drawCaptureDecision();
     }
-
-    // HUD
-    this.ctx.fillStyle = "white";
-    this.ctx.font = "16px Arial";
-    this.ctx.fillText(`Wave: ${this.currentWave}`, 20, 20);
-    this.ctx.fillText(`Gold: ${this.gold}`, 20, 40);
   }
-
-  drawPlaying() {
-    this.units.forEach(unit => unit.draw(this.ctx));
-    this.enemyUnits.forEach(unit => unit.draw(this.ctx));
-    this.towers.forEach(tower => tower.draw(this.ctx));
-  }
-
-  // ====================
-  // CAPTURE / DESTROY UI
-  // ====================
 
   drawCaptureDecision() {
-    this.ctx.fillStyle = "rgba(0,0,0,0.7)";
-    this.ctx.fillRect(0, 0, 900, 500);
+    // Darken background
+    this.ctx.fillStyle = "rgba(0,0,0,0.75)";
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
+    // Instruction box
     this.ctx.fillStyle = "white";
-    this.ctx.font = "26px Arial";
-    this.ctx.fillText("Tower Reached!", 330, 170);
+    this.ctx.font = "28px Arial";
+    this.ctx.textAlign = "center";
+    this.ctx.fillText(
+      "Tower Reached!",
+      this.canvas.width / 2,
+      150
+    );
 
-    this.drawButton(250, 230, 150, 50, "CAPTURE", "green");
-    this.drawButton(500, 230, 150, 50, "DESTROY", "red");
+    this.ctx.font = "18px Arial";
+    this.ctx.fillText(
+      "Choose your strategy:",
+      this.canvas.width / 2,
+      190
+    );
+
+    this.drawButton(
+      this.canvas.width / 2 - 180,
+      240,
+      160,
+      60,
+      "CAPTURE",
+      "green"
+    );
+
+    this.drawButton(
+      this.canvas.width / 2 + 20,
+      240,
+      160,
+      60,
+      "DESTROY",
+      "red"
+    );
+
+    this.ctx.textAlign = "left";
   }
 
   drawButton(x, y, w, h, text, color) {
@@ -162,11 +194,16 @@ export class Game {
     const y = event.clientY - rect.top;
 
     if (this.isInside(this.buttons.CAPTURE, x, y)) {
-      this.captureTower();
+      this.selectedTower.owner = "player";
+      this.exitDecisionState();
     }
 
     if (this.isInside(this.buttons.DESTROY, x, y)) {
-      this.destroyTower();
+      this.gold += 25;
+      this.towers = this.towers.filter(
+        t => t !== this.selectedTower
+      );
+      this.exitDecisionState();
     }
   }
 
@@ -177,30 +214,6 @@ export class Game {
       y > b.y &&
       y < b.y + b.h
     );
-  }
-
-  // ====================
-  // ACTIONS
-  // ====================
-
-  captureTower() {
-    if (!this.selectedTower) return;
-
-    this.selectedTower.owner = "player";
-    this.exitDecisionState();
-  }
-
-  destroyTower() {
-    if (!this.selectedTower) return;
-
-    // Reward gold for destruction
-    this.gold += 25;
-
-    this.towers = this.towers.filter(
-      t => t !== this.selectedTower
-    );
-
-    this.exitDecisionState();
   }
 
   exitDecisionState() {
